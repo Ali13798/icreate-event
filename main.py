@@ -2,7 +2,8 @@ from memory_tester import GUI
 
 
 def main():
-    GUI().mainloop()
+    game = GUI()
+    game.run()
 
 
 if __name__ == "__main__":

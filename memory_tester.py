@@ -9,3 +9,15 @@ class GUI(ttk.Frame):
         ttk.Frame.__init__(self)
         self.master.title("Memory Tester")
         self.grid()
+
+    def run(self):
+        self.mainloop()
+
+
+def main():
+    game = GUI()
+    game.run()
+
+
+if __name__ == "__main__":
+    main()
