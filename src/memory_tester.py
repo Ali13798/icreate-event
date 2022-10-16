@@ -1,8 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
 
-import constants
-from styles import GameStyles
+from src.styles import GameStyles
+
+from . import constants
 
 
 class GUI(ttk.Frame):

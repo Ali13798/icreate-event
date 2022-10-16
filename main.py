@@ -1,4 +1,4 @@
-from memory_tester import GUI
+from src.memory_tester import GUI
 
 
 def main():
