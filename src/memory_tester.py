@@ -61,8 +61,8 @@ class GUI(ttk.Frame):
                 lbl.grid(
                     row=row,
                     column=col,
-                    padx=padding_value,
-                    pady=padding_value,
+                    padx=constants.BW_ELEMENT_PADDING,
+                    pady=constants.BW_ELEMENT_PADDING,
                     sticky=tk.NSEW,
                 )
                 self.labels.append(lbl)
