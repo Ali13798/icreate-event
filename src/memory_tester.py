@@ -28,6 +28,7 @@ class GUI(ttk.Frame):
         self.remaining_lives = 3
         self.highest_score = 0
         self.score = 0
+        self.seq_length = 0
         self.is_running = False
 
         self.create_panes()
@@ -144,7 +145,9 @@ class GUI(ttk.Frame):
             text=f"Highest score: {self.highest_score:5}"
         )
 
-        self.lbl_lives.configure(text=new_lbl_text)
+        self.lbl_lives.configure(
+            text=f"{new_lbl_text} Length of your sequence was {self.seq_length}."
+        )
         self.btn_start.configure(text="Start")
 
     def save_highest_score(self, score: int) -> bool:
