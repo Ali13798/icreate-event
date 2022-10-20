@@ -1,5 +1,12 @@
+import threading
 import tkinter as tk
+from time import sleep
 from tkinter import ttk
+
+from mcculw import ul
+from mcculw.device_info import DaqDeviceInfo
+from mcculw.device_info.dio_info import PortInfo
+from mcculw.enums import DigitalIODirection, DigitalPortType, InterfaceType
 
 from src.styles import GameStyles
 
@@ -30,12 +37,16 @@ class GUI(ttk.Frame):
         self.score = 0
         self.seq_length = 0
         self.is_running = False
+        self.sensor_values: list[int] = [
+            constants.SENSOR_OFF
+        ] * constants.NUM_SENSORS
 
         self.create_panes()
         self.grid_panes()
 
         self.populate_sensors_pane()
         self.populate_info_pane()
+
 
     def create_panes(self) -> None:
         """Creates the different panes and store them as instance variables"""
@@ -167,7 +178,63 @@ class GUI(ttk.Frame):
         return False
 
     def run(self):
+        device_descriptors: list[
+            ul.DaqDeviceDescriptor
+        ] = ul.get_daq_device_inventory(interface_type=InterfaceType.USB)
+        if not device_descriptors:
+            raise Exception("Error: No DAQ devices found")
+
+        board_num = 0
+        ul.create_daq_device(
+            board_num=board_num, descriptor=device_descriptors[0]
+        )
+
+        daq_dev_info = DaqDeviceInfo(board_num)
+        if not daq_dev_info.supports_digital_io:
+            raise Exception(
+                "Error: The DAQ device does not support " "digital I/O"
+            )
+
+        dio_info = daq_dev_info.get_dio_info()
+
+        # Find the ports that support input.
+        ports: list[PortInfo] = [
+            port for port in dio_info.port_info if port.supports_input
+        ]
+        if not ports:
+            raise Exception(
+                "Error: The DAQ device does not support " "digital input"
+            )
+
+        # If the port is configurable, configure it for input.
+        port = ports[0]
+        if port.is_port_configurable:
+            ul.d_config_port(board_num, port.type, DigitalIODirection.IN)
+
+        sensor_reader = threading.Thread(
+            target=self.sensor_scanner, args=(board_num, port), daemon=True
+        )
+        sensor_reader.start()
+
         self.mainloop()
+
+    def sensor_scanner(self, board_num: int, port: DigitalPortType) -> None:
+        while True:
+            self.sensor_values = self.read_sensors(
+                board_num=board_num, port=port
+            )
+            print(self.sensor_values)
+            sleep(0.5)
+
+    def read_sensors(
+        self, board_num: int, port: DigitalPortType
+    ) -> list[int]:
+        return [
+            ul.d_bit_in(
+                board_num=board_num, port_type=port.type, bit_num=bit_num
+            )
+            for bit_num in range(constants.NUM_SENSORS)
+        ]
 
 
 def main():
