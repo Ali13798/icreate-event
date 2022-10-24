@@ -210,6 +210,7 @@ class GUI(ttk.Frame):
         while True:
             for sensor in self.sensors:
                 self.update_style(lbl_id=sensor.id, state=sensor.state)
+            sleep(constants.SLEEP_TIME)
 
     def daq_setup(self):
         device_descriptors: list[
@@ -260,7 +261,7 @@ class GUI(ttk.Frame):
                 board_num=board_num, port=port
             )
             print(self.sensor_values)
-            sleep(0.5)
+            sleep(constants.SLEEP_TIME)
 
     def read_sensors(
         self, board_num: int, port: DigitalPortType
