@@ -1,7 +1,8 @@
+import random
 import threading
 import tkinter as tk
 from dataclasses import dataclass
-from time import sleep
+from time import sleep, time
 from tkinter import ttk
 
 from mcculw import ul
@@ -43,8 +44,9 @@ class GUI(ttk.Frame):
         self.remaining_lives = 3
         self.highest_score = 0
         self.score = 0
-        self.seq_length = 0
+        self.sequence: list[int] = []
         self.is_running = False
+        self.is_player_turn = False
         self.sensor_values: list[int] = [
             constants.SENSOR_OFF
         ] * constants.NUM_SENSORS
@@ -59,10 +61,105 @@ class GUI(ttk.Frame):
         self.populate_sensors_pane()
         self.populate_info_pane()
 
-        style_updater = threading.Thread(
-            target=self.style_updater, daemon=True
+    def generate_sequence(self) -> None:
+        random.seed(time())
+        self.sequence.append(random.randint(1, 1))
+
+    def game_logic(self):
+        while self.is_running:
+            if self.is_player_turn:
+                continue
+
+            self.generate_sequence()
+            for id in self.sequence:
+                if not self.is_running:
+                    break
+
+                self.flash_style(id=id, state=GameStates.Guess)
+                sleep(constants.SLEEP_TIME)
+
+            if not self.is_running:
+                break
+
+            self.is_player_turn = True
+            self.read_player_inputs()
+
+            if not self.remaining_lives > 0:
+                self.start_stop_game()
+
+            print(f"NEW LEVEL {self.sequence=}")
+
+    def read_player_inputs(self):
+        max_indx = len(self.sequence)
+        indx = 0
+        last_interaction_time = time()
+        boost = int(self.difficulty.get())
+
+        while self.is_player_turn and self.remaining_lives > 0:
+            if not self.is_running:
+                return
+
+            if indx >= max_indx:
+                self.gain_points(pts=10 * boost, is_level_up=True)
+                break
+
+            guesses: set[int] = set()
+            try:
+                target = self.sequence[indx]
+            except IndexError:
+                target = None
+
+            for i, val in enumerate(self.sensor_values):
+                if val == constants.SENSOR_ON:
+                    guesses.add(i)
+
+            idle_time = time() - last_interaction_time
+            if not guesses:
+                if idle_time > 5:
+                    self.lose_a_life(msg="Inactivity")
+                    last_interaction_time = time()
+                continue
+
+            last_interaction_time = time()
+            if target in guesses and len(guesses) < 3:
+                self.gain_points(2 * boost)
+                self.flash_style(id=target, state=GameStates.Correct)
+                sleep(constants.SLEEP_TIME)
+                indx += 1
+                continue
+
+            ths: list[threading.Thread] = []
+            for id in guesses:
+                th = threading.Thread(
+                    target=self.flash_style, args=(id, GameStates.Incorrect)
         )
-        style_updater.start()
+                ths.append(th)
+                th.start()
+
+            for th in ths:
+                th.join()
+
+            self.lose_a_life(msg="Incorrect")
+
+        self.is_player_turn = False
+
+    def lose_a_life(self, msg: str):
+        self.remaining_lives -= 1
+        print(self.remaining_lives)
+        self.lbl_lives.configure(
+            text=f"Remaining lives: {self.remaining_lives} [{msg}]"
+        )
+
+    def gain_points(self, pts: int, is_level_up: bool = False):
+        self.score += pts
+        self.lbl_score.configure(text=f"Score: {self.score:5}")
+        if is_level_up:
+            self.lbl_lives.configure(
+                text=(
+                    f"Remaining lives: {self.remaining_lives}"
+                    f"/ Level {len(self.sequence) + 1}"
+                )
+            )
 
     def create_panes(self) -> None:
         """Creates the different panes and store them as instance variables"""
@@ -105,7 +202,10 @@ class GUI(ttk.Frame):
         # ROW 0
         self.lbl_lives = ttk.Label(
             self.info_pane,
-            text=f"Remaining lives: {self.remaining_lives}",
+            text=(
+                f"Remaining lives: {self.remaining_lives}"
+                f"/ Level {len(self.sequence) + 1}"
+            ),
             anchor=tk.CENTER,
         )
         self.lbl_lives.grid(row=0, column=0, columnspan=3, sticky=tk.EW)
@@ -142,20 +242,26 @@ class GUI(ttk.Frame):
             self.info_pane,
             text="Start",
             padding=constants.BW_ELEMENT_PADDING,
-            command=self.start_game,
+            command=self.start_stop_game,
         )
         self.btn_start.grid(row=1, column=1, sticky=tk.E)
 
-    def start_game(self):
+    def start_stop_game(self):
         if not self.is_running:
             self.is_running = True
+            self.is_player_turn = False
             self.score = 0
+            self.sequence: list[int] = []
             self.remaining_lives = 3
             self.style.configure("TButton", foreground="red")
             self.btn_start.configure(text="End")
             self.lbl_lives.configure(
-                text=f"Remaining lives: {self.remaining_lives}"
+                text=(
+                    f"Remaining lives: {self.remaining_lives}"
+                    f"/ Level {len(self.sequence) + 1}"
             )
+            )
+            threading.Thread(target=self.game_logic, daemon=True).start()
             return
 
         self.is_running = False
@@ -172,7 +278,7 @@ class GUI(ttk.Frame):
         )
 
         self.lbl_lives.configure(
-            text=f"{new_lbl_text} Length of your sequence was {self.seq_length}."
+            text=f"{new_lbl_text} Length of your sequence was {len(self.sequence)}."
         )
         self.btn_start.configure(text="Start")
 
@@ -206,11 +312,21 @@ class GUI(ttk.Frame):
 
         self.style.configure(lbl_style_name, background=bg_color)
 
+    def flash_style(self, id: int, state: GameStates) -> None:
+        difficulty = int(self.difficulty.get())
+        sleep_time = (
+            constants.SLEEP_TIME * (6 - difficulty)
+            if not self.is_player_turn
+            else constants.SLEEP_TIME
+        )
+        self.update_style(lbl_id=id, state=state)
+        sleep(sleep_time)
+        self.update_style(lbl_id=id, state=GameStates.Neutral)
+
     def style_updater(self) -> None:
         while True:
             for sensor in self.sensors:
                 self.update_style(lbl_id=sensor.id, state=sensor.state)
-            sleep(constants.SLEEP_TIME)
 
     def daq_setup(self):
         device_descriptors: list[
@@ -261,7 +377,6 @@ class GUI(ttk.Frame):
                 board_num=board_num, port=port
             )
             print(self.sensor_values)
-            sleep(constants.SLEEP_TIME)
 
     def read_sensors(
         self, board_num: int, port: DigitalPortType
