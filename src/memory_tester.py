@@ -59,7 +59,10 @@ class GUI(ttk.Frame):
         self.populate_sensors_pane()
         self.populate_info_pane()
 
-        self.testing()
+        style_updater = threading.Thread(
+            target=self.style_updater, daemon=True
+        )
+        style_updater.start()
 
     def create_panes(self) -> None:
         """Creates the different panes and store them as instance variables"""
