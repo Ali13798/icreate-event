@@ -384,13 +384,19 @@ class GUI(ttk.Frame):
 
     def sensor_scanner(self, board_num: int, port: DigitalPortType) -> None:
         while True:
-            if not self.is_running:
-                sleep(constants.SLEEP_TIME)
-                continue
-
             self.sensor_values = self.read_sensors(
                 board_num=board_num, port=port
             )
+
+            if not self.is_running:
+                for id, val in enumerate(self.sensor_values):
+                    if val != constants.SENSOR_ON:
+                        continue
+
+                    self.flash_style(id=id, state=GameStates.Guess)
+                sleep(constants.SLEEP_TIME)
+                continue
+
             print(self.sensor_values)
 
     def read_sensors(
