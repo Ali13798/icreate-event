@@ -1,5 +1,6 @@
 import threading
 import tkinter as tk
+from dataclasses import dataclass
 from time import sleep
 from tkinter import ttk
 
@@ -8,9 +9,16 @@ from mcculw.device_info import DaqDeviceInfo
 from mcculw.device_info.dio_info import PortInfo
 from mcculw.enums import DigitalIODirection, DigitalPortType, InterfaceType
 
+from src.states import GameStates
 from src.styles import GameStyles
 
 from . import constants
+
+
+@dataclass
+class Sensor:
+    id: int
+    state: GameStates
 
 
 class GUI(ttk.Frame):
@@ -41,12 +49,17 @@ class GUI(ttk.Frame):
             constants.SENSOR_OFF
         ] * constants.NUM_SENSORS
 
+        self.sensors: list[Sensor] = [
+            Sensor(id=i, state=GameStates.Neutral)
+            for i in range(constants.NUM_SENSORS)
+        ]
+
         self.create_panes()
         self.grid_panes()
-
         self.populate_sensors_pane()
         self.populate_info_pane()
 
+        self.testing()
 
     def create_panes(self) -> None:
         """Creates the different panes and store them as instance variables"""
@@ -67,8 +80,8 @@ class GUI(ttk.Frame):
     def populate_sensors_pane(self):
         for row in range(3):
             for col in range(3):
-                sensor_id = col + row * 3 + 1
-                lbl_name = f"Sensor {sensor_id}"
+                sensor_id = col + row * 3
+                lbl_name = f"Sensor {sensor_id + 1}"
                 style_name = f"{sensor_id}.Sensors.TLabel"
                 lbl = ttk.Label(
                     self.sensors_pane,
@@ -76,7 +89,6 @@ class GUI(ttk.Frame):
                     style=style_name,
                     anchor=tk.CENTER,
                 )
-                padding_value = 3
                 lbl.grid(
                     row=row,
                     column=col,
@@ -177,7 +189,26 @@ class GUI(ttk.Frame):
         self.highest_score = last_max
         return False
 
-    def run(self):
+    def update_style(self, lbl_id: int, state: GameStates) -> None:
+        lbl_style_name = f"{lbl_id}.Sensors.TLabel"
+
+        if state is GameStates.Correct:
+            bg_color = "green"
+        elif state is GameStates.Incorrect:
+            bg_color = "red"
+        elif state is GameStates.Guess:
+            bg_color = "white"
+        elif state is GameStates.Neutral:
+            bg_color = constants.LABEL_BG_COLOR
+
+        self.style.configure(lbl_style_name, background=bg_color)
+
+    def style_updater(self) -> None:
+        while True:
+            for sensor in self.sensors:
+                self.update_style(lbl_id=sensor.id, state=sensor.state)
+
+    def daq_setup(self):
         device_descriptors: list[
             ul.DaqDeviceDescriptor
         ] = ul.get_daq_device_inventory(interface_type=InterfaceType.USB)
@@ -216,6 +247,8 @@ class GUI(ttk.Frame):
         )
         sensor_reader.start()
 
+    def run(self):
+        # self.daq_setup()
         self.mainloop()
 
     def sensor_scanner(self, board_num: int, port: DigitalPortType) -> None:
