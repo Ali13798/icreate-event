@@ -280,7 +280,7 @@ class GUI(ttk.Frame):
 
         record_breaker = self.save_highest_score(score=self.score)
         new_lbl_text = (
-            f"You just sat the new highest score of {self.score}!"
+            f"You just sat the new highest score of {self.score} at level {len(self.sequence)}!"
             if record_breaker
             else f"You scored {self.score} points!"
         )
@@ -288,9 +288,7 @@ class GUI(ttk.Frame):
             text=f"Highest score: {self.highest_score:5}"
         )
 
-        self.lbl_lives.configure(
-            text=f"{new_lbl_text} Length of your sequence was {len(self.sequence)}."
-        )
+        self.lbl_lives.configure(text={new_lbl_text})
         self.btn_start.configure(text="Start")
 
     def save_highest_score(self, score: int) -> bool:
