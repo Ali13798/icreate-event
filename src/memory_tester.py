@@ -125,7 +125,7 @@ class GUI(ttk.Frame):
             if target in guesses and len(guesses) < 3:
                 self.gain_points(2 * boost)
                 self.flash_style(id=target, state=GameStates.Correct)
-                sleep(constants.SLEEP_TIME)
+                sleep(constants.SLEEP_TIME * 2)
                 indx += 1
                 continue
 
@@ -327,7 +327,7 @@ class GUI(ttk.Frame):
         difficulty = int(self.difficulty.get())
         sleep_time = (
             constants.SLEEP_TIME * (6 - difficulty)
-            if not self.is_player_turn
+            if not self.is_player_turn and self.is_running
             else constants.SLEEP_TIME
         )
         self.update_style(lbl_id=id, state=state)
