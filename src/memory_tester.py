@@ -63,7 +63,7 @@ class GUI(ttk.Frame):
 
     def generate_sequence(self) -> None:
         random.seed(time())
-        self.sequence.append(random.randint(1, 1))
+        self.sequence.append(random.randint(0, constants.NUM_SENSORS - 1))
 
     def game_logic(self):
         while self.is_running:
@@ -94,6 +94,7 @@ class GUI(ttk.Frame):
         indx = 0
         last_interaction_time = time()
         boost = int(self.difficulty.get())
+        grace_period = None
 
         while self.is_player_turn and self.remaining_lives > 0:
             if not self.is_running:
@@ -132,14 +133,23 @@ class GUI(ttk.Frame):
             for id in guesses:
                 th = threading.Thread(
                     target=self.flash_style, args=(id, GameStates.Incorrect)
-        )
+                )
                 ths.append(th)
                 th.start()
 
             for th in ths:
                 th.join()
 
+            if not grace_period:
+                self.lose_a_life(msg="Incorrect")
+                grace_period = time()
+                continue
+
+            if time() - grace_period < 3:
+                continue
+
             self.lose_a_life(msg="Incorrect")
+            grace_period = time()
 
         self.is_player_turn = False
 
@@ -182,6 +192,7 @@ class GUI(ttk.Frame):
             for col in range(3):
                 sensor_id = col + row * 3
                 lbl_name = f"Sensor {sensor_id + 1}"
+                # lbl_name = f"Sensor {sensor_id}"
                 style_name = f"{sensor_id}.Sensors.TLabel"
                 lbl = ttk.Label(
                     self.sensors_pane,
@@ -259,7 +270,7 @@ class GUI(ttk.Frame):
                 text=(
                     f"Remaining lives: {self.remaining_lives}"
                     f"/ Level {len(self.sequence) + 1}"
-            )
+                )
             )
             threading.Thread(target=self.game_logic, daemon=True).start()
             return
@@ -368,11 +379,15 @@ class GUI(ttk.Frame):
         sensor_reader.start()
 
     def run(self):
-        # self.daq_setup()
+        self.daq_setup()
         self.mainloop()
 
     def sensor_scanner(self, board_num: int, port: DigitalPortType) -> None:
         while True:
+            if not self.is_running:
+                sleep(constants.SLEEP_TIME)
+                continue
+
             self.sensor_values = self.read_sensors(
                 board_num=board_num, port=port
             )
