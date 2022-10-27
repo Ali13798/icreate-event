@@ -288,7 +288,7 @@ class GUI(ttk.Frame):
             text=f"Highest score: {self.highest_score:5}"
         )
 
-        self.lbl_lives.configure(text={new_lbl_text})
+        self.lbl_lives.configure(text=new_lbl_text)
         self.btn_start.configure(text="Start")
 
     def save_highest_score(self, score: int) -> bool:
